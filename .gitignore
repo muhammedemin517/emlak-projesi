@@ -15,6 +15,13 @@ yarn-debug.log*
 .DS_Store
 Thumbs.db
 
+# Çevresel değişkenler (.env gerçek değerleri içerir, örneği commit edilir)
+.env
+
+# Kullanıcı yüklemeleri (uploads) versiyon kontrolüne dahil edilmez
+public/uploads/
+!public/uploads/.gitkeep
+
 # Editör ve IDE Ayarları
 .vscode/
 .idea/

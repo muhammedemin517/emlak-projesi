@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <%- include('partials/head') %>
+</head>
+<body>
+    <%- include('partials/nav') %>
+
+    <main class="container narrow">
+        <div class="card">
+            <h2>👤 Kullanıcı Profili</h2>
+            <div class="profile-card">
+                <h3 style="margin-top:0;">Hoş geldiniz, @<%= user.username %>!</h3>
+                <hr style="border:0; border-top:1px solid var(--border); margin:14px 0;">
+
+                <p>🛡️ <b>Hesap Tipi:</b>
+                    <% if (user.role === 'Emlak Ofisi / Danışman') { %>
+                        <span class="badge badge-office">Emlak Ofisi / Danışman</span>
+                    <% } else { %>
+                        <span class="badge badge-personal">Bireysel Kullanıcı</span>
+                    <% } %>
+                </p>
+
+                <% if (user.companyName) { %>
+                    <p>🏢 <b>Bağlı Firma:</b> <%= user.companyName %></p>
+                <% } %>
+
+                <p>📊 <b>Aktif İlan:</b>
+                    <span class="badge badge-purple">
+                        <%= listingCount %> / <%= unlimited ? '∞' : limit %>
+                    </span>
+                </p>
+            </div>
+
+            <div class="flex-between mt-3">
+                <a href="/my-listings" class="btn btn-primary">📌 İlanlarımı Gör</a>
+                <a href="/favorites" class="btn btn-outline">⭐ Favorilerim</a>
+                <a href="/messages" class="btn btn-outline">✉️ Mesajlarım</a>
+            </div>
+        </div>
+    </main>
+</body>
+</html>

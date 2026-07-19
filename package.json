@@ -1,17 +1,35 @@
 {
   "name": "emlak-projesi",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "version": "2.0.0",
+  "description": "Emlak Pazaryeri - piyasa endeksli degerleme motoru, ilan pazaryeri, favori ve mesajlasma",
+  "main": "app.js",
   "scripts": {
+    "start": "node app.js",
+    "dev": "node app.js",
+    "seed": "node scraper.js",
+    "migrate": "node db/migrate.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [],
+  "keywords": [
+    "emlak",
+    "ilan",
+    "degerleme",
+    "express"
+  ],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
     "bcrypt": "^6.0.0",
-    "express": "^5.2.1"
+    "better-sqlite3": "^12.11.1",
+    "cheerio": "^1.0.0",
+    "dotenv": "^16.4.5",
+    "ejs": "^3.1.10",
+    "express": "^5.2.1",
+    "express-rate-limit": "^7.4.0",
+    "express-session": "^1.18.0",
+    "helmet": "^7.1.0",
+    "leaflet": "^1.9.4",
+    "multer": "^2.0.0"
   }
 }

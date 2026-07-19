@@ -1,0 +1,22 @@
+<nav class="nav">
+    <a href="/dashboard" class="brand">EmlakPazar</a>
+    <a href="/dashboard" class="nav-link <%= path === '/dashboard' || path === '/' ? 'active' : '' %>">🏠 Hesapla</a>
+    <a href="/listings" class="nav-link <%= path.startsWith('/listings') ? 'active' : '' %>">📋 İlanlar</a>
+
+    <% if (currentUser) { %>
+        <a href="/favorites" class="nav-link fav <%= path === '/favorites' ? 'active' : '' %>">
+            ⭐ Favoriler
+            <% if (favoriteCount) { %><span class="badge-count"><%= favoriteCount %></span><% } %>
+        </a>
+        <a href="/messages" class="nav-link msg <%= path === '/messages' ? 'active' : '' %>">
+            ✉️ Mesajlar
+            <% if (unreadCount) { %><span class="badge-count"><%= unreadCount %></span><% } %>
+        </a>
+        <a href="/my-listings" class="nav-link <%= path === '/my-listings' || path.startsWith('/edit-listing') ? 'active' : '' %>">📌 İlanlarım</a>
+        <a href="/profile" class="nav-link profile <%= path === '/profile' ? 'active' : '' %>">👤 <%= currentUser.username %></a>
+        <a href="/logout" class="nav-link">🚪 Çıkış</a>
+    <% } else { %>
+        <a href="/login" class="nav-link">🔑 Giriş Yap</a>
+        <a href="/register" class="nav-link">✍️ Kayıt Ol</a>
+    <% } %>
+</nav>

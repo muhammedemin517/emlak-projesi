@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <%- include('partials/head') %>
+    <link rel="stylesheet" href="/vendor/leaflet/leaflet.css">
+</head>
+<body>
+    <%- include('partials/nav') %>
+
+    <main class="container narrow">
+        <div class="card">
+            <h2>🏠 Gayrimenkul Değerleme Paneli</h2>
+            <p class="text-muted" style="margin-bottom: 20px;">
+                Evinizin özelliklerini girin; sistem piyasa endeksine dayalı adil değer raporunu üretsin.
+            </p>
+
+            <form id="valForm" action="/calculate" method="POST">
+                <!-- KONUM: adres yaz VEYA haritadan seç (şehir/ilçe dropdown'u yok) -->
+                <div class="form-group">
+                    <label>📍 Konum (adres ya da harita)</label>
+                    <div style="display:flex; gap:8px; margin-bottom:8px; flex-wrap:wrap;">
+                        <input type="text" id="addrInput" name="address"
+                               placeholder="Sokak, mahalle, ilçe, il — ör: Caferağa, Moda, Kadıköy, İstanbul"
+                               style="flex:1; min-width:220px;" required>
+                        <button type="button" id="addrBtn" class="btn btn-primary btn-sm">🔍 Bul</button>
+                        <button type="button" id="mapToggle" class="btn btn-outline btn-sm">🗺️ Haritadan Seç</button>
+                    </div>
+                    <div id="addrMsg" class="form-hint" style="min-height:16px;">Adresi yazıp <b>Bul</b>'a basın veya <b>Haritadan Seç</b> ile işaretleyin. Şehir/ilçe otomatik bulunur.</div>
+                    <div id="mapWrap" style="display:none; margin-top:8px;">
+                        <div id="mapPicker" class="map-box"></div>
+                        <div class="form-hint">İşaretçiyi sürükleyin veya haritaya tıklayın — adres kutusu otomatik dolar.</div>
+                    </div>
+                    <input type="hidden" name="lat" id="lat" value="">
+                    <input type="hidden" name="lng" id="lng" value="">
+                    <input type="hidden" name="district" id="cityField" value="">
+                    <input type="hidden" name="subDistrict" id="subField" value="">
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="sqm">Konut Genişliği (m²)</label>
+                        <input type="number" id="sqm" name="sqm" placeholder="Örn: 100" min="1" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="age">Bina Yaşı</label>
+                        <select id="age" name="age" required>
+                            <% Object.keys(labels.age).forEach(function(k){ %>
+                                <option value="<%= k %>"><%= labels.age[k] %></option>
+                            <% }); %>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="transport">Ulaşım Yakınlığı</label>
+                        <select id="transport" name="transport" required>
+                            <% Object.keys(labels.transport).forEach(function(k){ %>
+                                <option value="<%= k %>"><%= labels.transport[k] %></option>
+                            <% }); %>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="roomCount">Oda Sayısı</label>
+                        <select id="roomCount" name="roomCount">
+                            <% Object.keys(labels.roomCount).forEach(function(k){ %>
+                                <option value="<%= k %>"><%= labels.roomCount[k] %></option>
+                            <% }); %>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="floor">Bulunduğu Kat</label>
+                        <select id="floor" name="floor">
+                            <% Object.keys(labels.floor).forEach(function(k){ %>
+                                <option value="<%= k %>"><%= labels.floor[k] %></option>
+                            <% }); %>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="view">Manzara</label>
+                        <select id="view" name="view">
+                            <% Object.keys(labels.view).forEach(function(k){ %>
+                                <option value="<%= k %>"><%= labels.view[k] %></option>
+                            <% }); %>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="heating">Isınma Tipi</label>
+                        <select id="heating" name="heating">
+                            <% Object.keys(labels.heating).forEach(function(k){ %>
+                                <option value="<%= k %>"><%= labels.heating[k] %></option>
+                            <% }); %>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Ek Özellikler</label>
+                        <div class="checkbox-group" style="margin-top:4px;">
+                            <label><input type="checkbox" name="elevator" checked> Asansör</label>
+                        </div>
+                        <div class="checkbox-group" style="margin-top:6px;">
+                            <label><input type="checkbox" name="parking"> Otopark</label>
+                        </div>
+                        <div class="checkbox-group" style="margin-top:6px;">
+                            <label><input type="checkbox" name="furnished"> Eşyalı</label>
+                        </div>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-green btn-block">Hesapla ve Raporu Göster</button>
+            </form>
+        </div>
+    </main>
+
+    <script src="/vendor/leaflet/leaflet.js"></script>
+    <script src="/js/leaflet-pin.js"></script>
+    <script>
+        // Desteklenen şehirler ve ilçeleri (fiyat çarpanı için) + şehir merkezleri
+        const MARKET = <%- JSON.stringify(
+            Object.fromEntries(Object.entries(market).map(([c, v]) => [c, Object.keys(v.districts || {})]))
+        ) %>;
+
+        const addrInput = document.getElementById('addrInput');
+        const addrBtn = document.getElementById('addrBtn');
+        const addrMsg = document.getElementById('addrMsg');
+        const mapToggle = document.getElementById('mapToggle');
+        const mapWrap = document.getElementById('mapWrap');
+        const form = document.getElementById('valForm');
+
+        // Türkçe karakterleri normalleştir (ş→s, ı→i, ...) — adres eşleştirme için
+        function trNorm(s) {
+            return (s || '').toLocaleLowerCase('tr')
+                .replace(/ı/g, 'i').replace(/İ/g, 'i').replace(/ş/g, 's').replace(/ğ/g, 'g')
+                .replace(/ü/g, 'u').replace(/ö/g, 'o').replace(/ç/g, 'c');
+        }
+
+        // Adres metninden desteklenen şehir + ilçe'yi çıkar
+        function deriveLocation(text) {
+            const hay = trNorm(text);
+            let city = null, sub = null;
+            for (const c of Object.keys(MARKET)) {
+                if (hay.includes(trNorm(c))) { city = c; break; }
+            }
+            if (city) {
+                for (const d of MARKET[city]) {
+                    if (hay.includes(trNorm(d))) { sub = d; break; }
+                }
+            }
+            return { city, sub };
+        }
+
+        function applyDerived(text, lat, lng) {
+            const { city, sub } = deriveLocation(text);
+            document.getElementById('cityField').value = city || '';
+            document.getElementById('subField').value = sub || '';
+            if (lat) {
+                document.getElementById('lat').value = lat;
+                document.getElementById('lng').value = lng;
+            }
+            if (city) {
+                addrMsg.innerHTML = '✓ <b>' + city + '</b>' + (sub ? ' / ' + sub : '') + ' tanındı — fiyat hesaplanabilir.';
+            } else {
+                addrMsg.innerHTML = '⚠ Bu şehir endeks verimizde yok. Şunlardan bir adres girin: ' +
+                    Object.keys(MARKET).join(', ') + '.';
+            }
+        }
+
+        // ---- Leaflet haritası (talep üzerine başlat) ----
+        let map = null, marker = null;
+        function ensureMap() {
+            if (map) return;
+            map = L.map('mapPicker').setView([39.0, 35.0], 6);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19,
+                attribution: '&copy; OpenStreetMap katkıda bulunanlar',
+            }).addTo(map);
+            marker = L.marker([39.0, 35.0], { icon: window.LEAFLET_PIN, draggable: true }).addTo(map);
+            marker.on('dragend', onMapMove);
+            map.on('click', function (e) { marker.setLatLng(e.latlng); onMapMove(); });
+        }
+        function onMapMove() {
+            const ll = marker.getLatLng();
+            document.getElementById('lat').value = ll.lat.toFixed(6);
+            document.getElementById('lng').value = ll.lng.toFixed(6);
+            reverseGeocode(ll.lat, ll.lng);
+        }
+
+        mapToggle.addEventListener('click', function () {
+            if (mapWrap.style.display === 'none') {
+                mapWrap.style.display = 'block';
+                ensureMap();
+                setTimeout(function () { map.invalidateSize(); }, 100);
+                locateFromAddress(); // mevcut adrese göre haritayı konumla
+            } else {
+                mapWrap.style.display = 'none';
+            }
+        });
+
+        // ---- Geocoding (Nominatim) ----
+        async function forwardGeocode(q) {
+            const url = 'https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=1&countrycodes=tr&q='
+                + encodeURIComponent(q);
+            const r = await fetch(url, { headers: { 'Accept': 'application/json' } });
+            const d = await r.json();
+            return d && d[0] ? d[0] : null;
+        }
+        async function reverseGeocode(lat, lng) {
+            try {
+                const url = 'https://nominatim.openstreetmap.org/reverse?format=json&addressdetails=1&lat='
+                    + lat + '&lon=' + lng;
+                const r = await fetch(url);
+                const d = await r.json();
+                if (d && d.display_name) {
+                    addrInput.value = d.display_name;
+                    applyDerived(d.display_name, null, null);
+                }
+            } catch (e) { /* sessiz */ }
+        }
+
+        async function locateFromAddress() {
+            const q = addrInput.value.trim();
+            if (!q) { addrMsg.textContent = 'Lütfen bir adres girin.'; return; }
+            addrMsg.textContent = '⏳ Adres aranıyor...';
+            const res = await forwardGeocode(q);
+            if (res) {
+                const lat = parseFloat(res.lat), lon = parseFloat(res.lon);
+                addrInput.value = res.display_name || q;
+                applyDerived(res.display_name || q, lat.toFixed(6), lon.toFixed(6));
+                if (map) { map.setView([lat, lon], 15); marker.setLatLng([lat, lon]); }
+            } else {
+                addrMsg.textContent = '✗ Adres bulunamadı. Daha açık yazın (sokak/mahalle, ilçe, il).';
+            }
+        }
+        addrBtn.addEventListener('click', locateFromAddress);
+        addrInput.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') { e.preventDefault(); locateFromAddress(); }
+        });
+
+        // Submit öncesi adres çözülmediyse çöz, sonra gönder
+        let geoResolved = false;
+        form.addEventListener('submit', async function (e) {
+            if (geoResolved) return;
+            if (addrInput.value.trim() && !document.getElementById('cityField').value) {
+                e.preventDefault();
+                await locateFromAddress();
+                geoResolved = true;
+                form.submit();
+            }
+        });
+    </script>
+</body>
+</html>

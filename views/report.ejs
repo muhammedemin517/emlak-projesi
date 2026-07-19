@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <%- include('partials/head') %>
+</head>
+<body>
+    <%- include('partials/nav') %>
+
+    <main class="container narrow">
+        <div class="card">
+            <div class="flex-between" style="border-bottom: 3px solid var(--yellow); padding-bottom: 10px; margin-bottom: 18px;">
+                <h2 style="border:0; padding:0; margin:0;">📊 Değerleme Raporu</h2>
+                <button onclick="window.print()" class="btn btn-outline btn-sm">🖨 PDF / Yazdır</button>
+            </div>
+
+            <p><b>Konum:</b> <%= address || (district + (subDistrict ? ' / ' + subDistrict : '')) %></p>
+            <p><b>Konut:</b> <%= sqm %> m² · <%= roomCount %> · <%= age %> yaş</p>
+
+            <div class="compare-box">
+                <strong>🔍 Sahibinden Karşılaştırma:</strong>
+                Benzer ilanlar ortalama
+                <b style="color:#e67e22;"><%= formatCurrency(result.sahibindenEstimate) %></b>
+                civarında listelenmektedir.
+            </div>
+
+            <div class="report-result">
+                <div class="text-muted">Sistemimizin Önerdiği Adil Değer:</div>
+                <div class="big-price"><%= formatCurrency(result.price) %></div>
+
+                <details class="mt-2">
+                    <summary style="cursor:pointer; font-weight:600;">Hesap dökümünü göster</summary>
+                    <table class="factor-table mt-1">
+                        <tr><td>m² taban × ilçe çarpanı (<%= result.multiplier %>x)</td><td><%= formatCurrency(result.base) %></td></tr>
+                        <% result.breakdown.forEach(function(f){ %>
+                            <tr>
+                                <td><%= f.label %></td>
+                                <td>× <%= f.factor.toFixed(2) %></td>
+                            </tr>
+                        <% }); %>
+                    </table>
+                </details>
+            </div>
+
+            <% if (user.role === 'Bireysel Kullanıcı') { %>
+                <div class="alert alert-info">
+                    Bireysel hesaplarla en fazla <%= limit %> ilan yayımlayabilirsiniz.
+                </div>
+            <% } %>
+
+            <form action="/publish" method="POST" enctype="multipart/form-data" style="margin-top: 20px;">
+                <input type="hidden" name="district" value="<%= district %>">
+                <input type="hidden" name="subDistrict" value="<%= subDistrict %>">
+                <input type="hidden" name="sqm" value="<%= sqm %>">
+                <input type="hidden" name="age" value="<%= age %>">
+                <input type="hidden" name="transport" value="<%= transport %>">
+                <input type="hidden" name="roomCount" value="<%= roomCount %>">
+                <input type="hidden" name="floor" value="<%= floor %>">
+                <input type="hidden" name="view" value="<%= view %>">
+                <input type="hidden" name="heating" value="<%= heating %>">
+                <input type="hidden" name="systemPrice" value="<%= result.price %>">
+                <input type="hidden" name="lat" value="<%= lat || '' %>">
+                <input type="hidden" name="lng" value="<%= lng || '' %>">
+                <input type="hidden" name="address" value="<%= address || '' %>">
+                <% if (elevator) { %><input type="hidden" name="elevator" value="on"><% } %>
+                <% if (parking) { %><input type="hidden" name="parking" value="on"><% } %>
+                <% if (furnished) { %><input type="hidden" name="furnished" value="on"><% } %>
+
+                <div class="form-group">
+                    <label for="photos">İlan Fotoğrafları (opsiyonel, en fazla 8 adet)</label>
+                    <input type="file" name="photos" id="photos" accept="image/*" multiple>
+                    <div class="form-hint">Birden fazla fotoğraf seçebilirsiniz (her biri maks 5MB).</div>
+                </div>
+
+                <div class="form-group">
+                    <label for="customPrice">İlan Fiyatınız (TL)</label>
+                    <input type="number" name="customPrice" id="customPrice" value="<%= result.price %>" required>
+                    <div class="form-hint">Sistem fiyatının altında/üstünde fiyat belirleyebilirsiniz.</div>
+                </div>
+
+                <div class="form-group">
+                    <label for="note">İlan Açıklaması</label>
+                    <textarea name="note" id="note" placeholder="Örn: Acil satılık, metroya yakın, pazarlık payı var..."></textarea>
+                </div>
+
+                <button type="submit" class="btn btn-green btn-block">🚀 İlanı Yayına Al</button>
+            </form>
+
+            <a href="/dashboard" class="btn btn-outline btn-block mt-2">⬅ Vazgeç ve Dön</a>
+        </div>
+    </main>
+</body>
+</html>

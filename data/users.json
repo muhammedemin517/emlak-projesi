@@ -25,5 +25,11 @@
     "password": "$2b$10$Fiwd96bL8AH/tMlLMSshGuCWm8bKAz9NwRQmSA3FyCY1iQUiZ8f42",
     "role": "Bireysel Kullanıcı",
     "companyName": ""
+  },
+  {
+    "username": "muhammed",
+    "password": "$2b$10$2dazA/3/ITlh1hlPe9Skau57FsoBXcSeo6s25Jysf6W4r5zdbM6c2",
+    "role": "Bireysel Kullanıcı",
+    "companyName": ""
   }
 ]

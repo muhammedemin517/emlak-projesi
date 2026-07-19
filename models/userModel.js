@@ -1,26 +1,39 @@
-const fs = require('fs');
-const path = require('path');
+const crypto = require('crypto');
+const db = require('../db/database');
 
-// JSON dosyamızın bilgisayardaki tam yolunu buluyoruz
-const dataPath = path.join(__dirname, '../data/users.json');
+const stmt = {
+    insert: db.prepare(`
+        INSERT INTO users (id, username, password, role, companyName, createdAt)
+        VALUES (@id, @username, @password, @role, @companyName, @createdAt)
+    `),
+    all: db.prepare('SELECT * FROM users ORDER BY createdAt DESC'),
+    byUsername: db.prepare('SELECT * FROM users WHERE username = ?'),
+};
 
 const User = {
-    // Tüm kullanıcıları getir
-    getAll: () => {
-        const data = fs.readFileSync(dataPath);
-        return JSON.parse(data);
-    },
-    // Yeni kullanıcı kaydet
+    getAll: () => stmt.all.all(),
+
     save: (userData) => {
-        const users = User.getAll();
-        users.push(userData);
-        fs.writeFileSync(dataPath, JSON.stringify(users, null, 2));
+        const u = {
+            id: userData.id || crypto.randomUUID(),
+            username: userData.username,
+            password: userData.password,
+            role: userData.role,
+            companyName: userData.companyName || '',
+            createdAt: userData.createdAt || new Date().toISOString(),
+        };
+        stmt.insert.run(u);
+        return u;
     },
-    // Giriş yaparken kullanıcıyı adına göre bul
-    findByUsername: (username) => {
-        const users = User.getAll();
-        return users.find(user => user.username === username);
-    }
+
+    findByUsername: (username) => stmt.byUsername.get(username) || null,
+
+    // Şifre hariç güvenli temsil — oturuma yazarken kullanılır
+    toSafe: (user) => {
+        if (!user) return null;
+        const { password, ...safe } = user;
+        return safe;
+    },
 };
 
 module.exports = User;
