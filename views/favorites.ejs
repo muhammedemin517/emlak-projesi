@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <%- include('partials/head') %>
+</head>
+<body>
+    <%- include('partials/nav') %>
+
+    <main class="container">
+        <h2>⭐ Favorilerim (<%= listings.length %>)</h2>
+
+        <% if (listings.length === 0) { %>
+            <div class="empty">
+                <span class="emoji">💔</span>
+                <p>Henüz favori ilanınız yok.</p>
+                <a href="/listings" class="btn btn-green btn-sm mt-2">İlanlara Göz At</a>
+            </div>
+        <% } else { %>
+            <div class="listing-grid mt-3">
+                <% listings.forEach(function(item){ %>
+                    <% const b = helpers.trendBadge(item.userPrice, item.systemPrice); %>
+                    <div class="listing-card <%= item.userRole === 'Emlak Ofisi / Danışman' ? 'office' : '' %>">
+                        <a href="/listings/<%= item.id %>">
+                            <img class="cover" src="<%= helpers.photoOrPlaceholder(item.photo) %>" alt="ilan">
+                        </a>
+                        <div class="body">
+                            <a href="/listings/<%= item.id %>" class="title"><%= item.district %> / <%= item.subDistrict %></a>
+                            <div class="price"><%= helpers.formatCurrency(item.userPrice) %></div>
+                            <div class="meta">
+                                <span>📐 <%= item.sqm %> m²</span>
+                                <span>🛏 <%= item.roomCount %></span>
+                            </div>
+                            <div class="footer">
+                                <span class="badge <%= b.cls %>"><%= b.emoji %> <%= b.label %></span>
+                                <form action="/favorite/<%= item.id %>" method="POST">
+                                    <button type="submit" class="btn btn-outline btn-sm">💔 Çıkar</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                <% }); %>
+            </div>
+        <% } %>
+    </main>
+</body>
+</html>

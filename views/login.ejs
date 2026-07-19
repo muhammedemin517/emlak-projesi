@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <%- include('partials/head') %>
+</head>
+<body>
+    <div class="auth-wrap">
+        <div class="auth-card">
+            <div class="brand-logo">EmlakPazar</div>
+            <div class="brand-slogan">Emlak dünyasına açılan kurumsal kapınız.</div>
+
+            <form id="loginForm">
+                <input type="hidden" id="next" value="<%= next %>">
+
+                <div class="form-group">
+                    <label for="username">Kullanıcı Adı</label>
+                    <input type="text" id="username" name="username" class="form-control" placeholder="Örn: muhammed" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="password">Şifre</label>
+                    <input type="password" id="password" name="password" class="form-control" placeholder="********" required>
+                </div>
+
+                <button type="submit" class="btn btn-primary btn-block">Sisteme Güvenli Giriş Yap 🚀</button>
+            </form>
+
+            <div class="switch">
+                Henüz hesabınız yok mu? <a href="/register">Hemen Kayıt Olun</a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const next = document.getElementById('next').value;
+
+            try {
+                const response = await fetch('/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password, next })
+                });
+                const result = await response.json();
+                if (response.ok) {
+                    window.location.href = result.redirectUrl || '/dashboard';
+                } else {
+                    alert(result.message || 'Giriş işlemi başarısız oldu.');
+                }
+            } catch (err) {
+                alert('Sunucuyla iletişim kurulurken bir hata oluştu.');
+            }
+        });
+    </script>
+</body>
+</html>

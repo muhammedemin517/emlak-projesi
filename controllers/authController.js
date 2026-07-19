@@ -1,90 +1,107 @@
-const path = require('path');
 const bcrypt = require('bcrypt');
+const crypto = require('crypto');
 const User = require('../models/userModel');
 
-// Sayfaları Gösterme
+// Sayfaları göster
 exports.getRegisterPage = (req, res) => {
-    res.sendFile(path.join(__dirname, '../views/register.html'));
+    if (req.session.user) return res.redirect('/dashboard');
+    res.render('register', { title: 'Kayıt Ol', error: null });
 };
 
 exports.getLoginPage = (req, res) => {
-    res.sendFile(path.join(__dirname, '../views/login.html'));
+    if (req.session.user) return res.redirect('/dashboard');
+    res.render('login', {
+        title: 'Giriş Yap',
+        next: req.query.next || '/dashboard',
+    });
 };
 
-// Kayıt İşlemi (Register)
+// Kayıt işlemi (JSON yanıtlı — frontend fetch ile çağırır)
 exports.registerUser = async (req, res) => {
-    // GÜNCELLEME: req.body'den gelen companyName bilgisini de yakalıyoruz
     const { username, password, role, companyName } = req.body;
 
     if (!username || !password || !role) {
-        return res.status(400).json({ success: false, message: "Lütfen tüm alanları doldurun." });
+        return res
+            .status(400)
+            .json({ success: false, message: 'Lütfen tüm alanları doldurun.' });
+    }
+    if (role === 'Emlak Ofisi / Danışman' && !companyName) {
+        return res
+            .status(400)
+            .json({ success: false, message: 'Emlak ofisi için firma adı zorunludur.' });
     }
 
     try {
-        // Kullanıcı var mı kontrolü
-        const existingUser = User.findByUsername(username);
-        if (existingUser) {
-            return res.status(400).json({ success: false, message: "Bu kullanıcı adı zaten alınmış." });
+        if (User.findByUsername(username)) {
+            return res
+                .status(400)
+                .json({ success: false, message: 'Bu kullanıcı adı zaten alınmış.' });
         }
 
-        // Şifreyi şifreleme (Bcrypt)
         const hashedPassword = await bcrypt.hash(password, 10);
-
-        // GÜNCELLEME: Kullanıcıyı rolü ve emlakçıysa firma adıyla birlikte kaydediyoruz
-        User.save({ 
-            username, 
-            password: hashedPassword, 
+        User.save({
+            id: crypto.randomUUID(),
+            username,
+            password: hashedPassword,
             role,
-            companyName: role === 'Emlak Ofisi / Danışman' ? companyName : ''
+            companyName: role === 'Emlak Ofisi / Danışman' ? companyName : '',
         });
 
         return res.status(201).json({
             success: true,
-            message: "Kayıt Başarılı!",
-            redirectUrl: "/login"
+            message: 'Kayıt başarılı!',
+            redirectUrl: '/login',
         });
-
     } catch (error) {
-        console.error("Kayıt Hatası:", error);
-        return res.status(500).json({ success: false, message: "Sunucu hatası oluştu." });
+        console.error('Kayıt Hatası:', error);
+        return res.status(500).json({ success: false, message: 'Sunucu hatası oluştu.' });
     }
 };
 
-// Giriş İşlemi (Login)
+// Giriş işlemi (JSON yanıtlı)
 exports.loginUser = async (req, res) => {
     const { username, password } = req.body;
 
     if (!username || !password) {
-        return res.status(400).json({ success: false, message: "Lütfen kullanıcı adı ve şifrenizi girin." });
+        return res
+            .status(400)
+            .json({ success: false, message: 'Lütfen kullanıcı adı ve şifrenizi girin.' });
     }
 
     try {
         const user = User.findByUsername(username);
-
-        // Kullanıcı yoksa
         if (!user) {
-            return res.status(404).json({ success: false, message: "Kullanıcı bulunamadı." });
+            return res
+                .status(404)
+                .json({ success: false, message: 'Kullanıcı bulunamadı.' });
         }
 
-        // Şifre eşleşiyor mu kontrolü
         const isMatch = await bcrypt.compare(password, user.password);
-
-        if (isMatch) {
-            // GÜNCELLEME: Giriş başarılıysa bu kullanıcıyı global oturuma kaydediyoruz
-            // Böylece estateController kimin ilan eklediğini ve limitini görebilecek
-            global.currentUser = user;
-
-            // Başarılı girişte frontend'e nereye gideceğini JSON olarak söylüyoruz
-            return res.status(200).json({
-                success: true,
-                message: "Giriş başarılı! Yönlendiriliyorsunuz...",
-                redirectUrl: "/dashboard"
-            });
-        } else {
-            return res.status(401).json({ success: false, message: "Hatalı şifre!" });
+        if (!isMatch) {
+            return res.status(401).json({ success: false, message: 'Hatalı şifre!' });
         }
+
+        // Oturuma güvenli (şifresiz) kullanıcı bilgisini yaz
+        req.session.user = User.toSafe(user);
+
+        // `?next=` ile gelen dönüş adresine veya dashboard'a git
+        const redirectUrl =
+            (req.body && req.body.next) || req.query.next || '/dashboard';
+        return res.status(200).json({
+            success: true,
+            message: 'Giriş başarılı! Yönlendiriliyorsunuz...',
+            redirectUrl,
+        });
     } catch (error) {
-        console.error("Giriş Hatası:", error);
-        return res.status(500).json({ success: false, message: "Sunucu hatası oluştu." });
+        console.error('Giriş Hatası:', error);
+        return res.status(500).json({ success: false, message: 'Sunucu hatası oluştu.' });
     }
+};
+
+// Çıkış — oturumu yok et ve çerezi temizle
+exports.logout = (req, res) => {
+    req.session.destroy(() => {
+        res.clearCookie('emlak.sid');
+        res.redirect('/login');
+    });
 };

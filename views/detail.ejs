@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <%- include('partials/head') %>
+    <link rel="stylesheet" href="/vendor/leaflet/leaflet.css">
+</head>
+<body>
+    <%- include('partials/nav') %>
+
+    <main class="container">
+        <% if (typeof sent !== 'undefined' && sent) { %>
+            <div class="alert alert-success">✅ Mesajınız satıcıya iletildi.</div>
+        <% } %>
+
+        <div style="display:grid; grid-template-columns: 1.4fr 1fr; gap: 24px;" class="detail-grid">
+            <!-- Sol: galeri + bilgiler + harita -->
+            <div class="card">
+                <!-- Galeri -->
+                <%
+                    const coverList = photos && photos.length ? photos : [helpers.photoOrPlaceholder(null)];
+                    const cover = photos && photos.length ? photos[0] : helpers.photoOrPlaceholder(null);
+                %>
+                <img id="mainPhoto" src="<%= cover %>" alt="ilan"
+                     style="width:100%; height:340px; object-fit:cover; border-radius:8px; background:#e2e8f0;">
+                <% if (photos && photos.length > 1) { %>
+                    <div style="display:flex; gap:8px; margin-top:10px; overflow-x:auto; padding-bottom:4px;">
+                        <% photos.forEach(function(p, i){ %>
+                            <img src="<%= p %>" alt="foto <%= i+1 %>"
+                                 onclick="document.getElementById('mainPhoto').src=this.src"
+                                 style="width:80px; height:60px; object-fit:cover; border-radius:6px; cursor:pointer; border:2px solid var(--border);">
+                        <% }); %>
+                    </div>
+                <% } %>
+
+                <h2 style="border:0; margin-top:16px;"><%= listing.district %> / <%= listing.subDistrict %></h2>
+                <div style="font-size:26px; color:var(--green); font-weight:800; margin-bottom:12px;">
+                    <%= helpers.formatCurrency(listing.userPrice) %>
+                </div>
+
+                <div class="meta" style="display:flex; flex-wrap:wrap; gap:10px 18px; color:var(--muted); font-size:14px;">
+                    <span>📐 <%= listing.sqm %> m²</span>
+                    <span>🛏 <%= helpers.labelFor('roomCount', listing.roomCount) %></span>
+                    <span>🏗 <%= helpers.labelFor('age', listing.age) %></span>
+                    <span>🚇 <%= helpers.labelFor('transport', listing.transport) %></span>
+                    <span>🏢 <%= helpers.labelFor('floor', listing.floor) %></span>
+                    <span>🌅 <%= helpers.labelFor('view', listing.view) %></span>
+                    <span>🔥 <%= helpers.labelFor('heating', listing.heating) %></span>
+                    <span>🛗 Asansör: <%= listing.elevator ? 'Var' : 'Yok' %></span>
+                    <span>🅿️ Otopark: <%= listing.parking ? 'Var' : 'Yok' %></span>
+                    <span>🛋 Eşyalı: <%= listing.furnished ? 'Evet' : 'Hayır' %></span>
+                </div>
+
+                <h3 style="margin-top:18px;">Açıklama</h3>
+                <p class="text-muted"><%= listing.note %></p>
+
+                <div class="footer mt-2" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                    <% const b = helpers.trendBadge(listing.userPrice, listing.systemPrice); %>
+                    <span class="badge <%= b.cls %>"><%= b.emoji %> <%= b.label %></span>
+                    <% if (listing.systemPrice) { %>
+                        <span class="text-muted" style="font-size:13px;">Sistem adil değer: <%= helpers.formatCurrency(listing.systemPrice) %></span>
+                    <% } %>
+                </div>
+
+                <!-- Harita -->
+                <h3 style="margin-top:22px;">📍 Konum</h3>
+                <% if (listing.address) { %>
+                    <p style="font-size:14px;">🗺️ <%= listing.address %></p>
+                <% } %>
+                <% if (!hasExactLocation) { %>
+                    <p class="text-muted" style="font-size:13px;">Hassas konum belirtilmemiş; harita yaklaşık şehir merkezini gösterir.</p>
+                <% } %>
+                <div id="detailMap" class="map-box" style="margin-top:8px;"></div>
+            </div>
+
+            <!-- Sağ: satıcı + işlem -->
+            <div>
+                <div class="card">
+                    <h3 style="margin-top:0;">İlan Sahibi</h3>
+                    <% if (listing.userRole === 'Emlak Ofisi / Danışman') { %>
+                        <span class="badge badge-office">🏢 <%= listing.companyName || 'Emlak Ofisi' %></span>
+                    <% } else { %>
+                        <span class="badge badge-personal">👤 Sahibinden</span>
+                    <% } %>
+                    <p class="text-muted mt-1">Yayınlayan: @<%= listing.owner %></p>
+                    <p class="text-muted" style="font-size:13px;">Yayın tarihi: <%= helpers.formatDate(listing.createdAt) %></p>
+
+                    <% if (currentUser) { %>
+                        <form action="/favorite/<%= listing.id %>" method="POST" class="mt-2">
+                            <button type="submit" class="btn btn-outline btn-block">
+                                <%= isFav ? '❤️ Favoriden Çıkar' : '🤍 Favorilere Ekle' %>
+                            </button>
+                        </form>
+                    <% } %>
+                </div>
+
+                <% if (isOwner) { %>
+                    <div class="card">
+                        <h3 style="margin-top:0;">Yönetim</h3>
+                        <p class="text-muted" style="font-size:13px;">Bu ilan size ait.</p>
+                        <a href="/edit-listing/<%= listing.id %>" class="btn btn-primary btn-block">✏️ İlanı Düzenle</a>
+                        <form action="/delete-listing" method="POST" class="mt-2">
+                            <input type="hidden" name="id" value="<%= listing.id %>">
+                            <button type="submit" class="btn btn-danger btn-block"
+                                    onclick="return confirm('Bu ilanı kalıcı olarak silmek istediğinize emin misiniz?')">
+                                🗑 İlanı Sil
+                            </button>
+                        </form>
+                    </div>
+                <% } else if (currentUser) { %>
+                    <div class="card">
+                        <h3 style="margin-top:0;">✉️ Satıcıya Mesaj Gönder</h3>
+                        <form action="/listings/<%= listing.id %>/message" method="POST">
+                            <div class="form-group">
+                                <label>Mesajınız</label>
+                                <textarea name="body" required placeholder="Merhaba, ilanınızla ilgileniyorum..."></textarea>
+                            </div>
+                            <div class="form-group">
+                                <label>İletişim Telefonu (opsiyonel)</label>
+                                <input type="text" name="phone" placeholder="05xx xxx xx xx">
+                            </div>
+                            <button type="submit" class="btn btn-green btn-block">Mesajı Gönder</button>
+                        </form>
+                    </div>
+                <% } else { %>
+                    <div class="card text-center">
+                        <p class="text-muted">Satıcıyla iletişime geçmek için giriş yapın.</p>
+                        <a href="/login?next=/listings/<%= listing.id %>" class="btn btn-primary btn-block">🔑 Giriş Yap</a>
+                    </div>
+                <% } %>
+            </div>
+        </div>
+    </main>
+
+    <script src="/vendor/leaflet/leaflet.js"></script>
+    <script src="/js/leaflet-pin.js"></script>
+    <script>
+        const center = <%= JSON.stringify(center) %>;
+        const map = L.map('detailMap').setView(center, <%= hasExactLocation ? 14 : 11 %>);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '&copy; OpenStreetMap katkıda bulunanlar',
+        }).addTo(map);
+        L.marker(center, { icon: window.LEAFLET_PIN }).addTo(map);
+    </script>
+
+    <style>
+        @media (max-width: 800px) { .detail-grid { grid-template-columns: 1fr !important; } }
+    </style>
+</body>
+</html>

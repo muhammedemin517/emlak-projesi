@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <%- include('partials/head') %>
+</head>
+<body>
+    <%- include('partials/nav') %>
+
+    <main class="container">
+        <div class="flex-between" style="margin-bottom: 16px;">
+            <h2>📋 Pazaryeri (<%= total %> ilan)</h2>
+        </div>
+
+        <!-- Filtre çubuğu -->
+        <div class="card">
+            <form method="GET" action="/listings" class="filter-bar">
+                <div class="form-group">
+                    <label>Şehir</label>
+                    <select name="city" onchange="this.form.submit()">
+                        <option value="">Tümü</option>
+                        <% cities.forEach(function(c){ %>
+                            <option value="<%= c %>" <%= filters.city === c ? 'selected' : '' %>><%= c %></option>
+                        <% }); %>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>İlçe</label>
+                    <select name="sub" onchange="this.form.submit()" <%= districts.length === 0 ? 'disabled' : '' %>>
+                        <option value="">Tümü</option>
+                        <% districts.forEach(function(d){ %>
+                            <option value="<%= d %>" <%= filters.sub === d ? 'selected' : '' %>><%= d %></option>
+                        <% }); %>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Min Fiyat</label>
+                    <input type="number" name="minPrice" value="<%= filters.minPrice || '' %>" placeholder="0">
+                </div>
+                <div class="form-group">
+                    <label>Max Fiyat</label>
+                    <input type="number" name="maxPrice" value="<%= filters.maxPrice || '' %>" placeholder="∞">
+                </div>
+                <div class="form-group">
+                    <label>Sıralama</label>
+                    <select name="sort" onchange="this.form.submit()">
+                        <% const sorts = [['newest','En Yeni'],['priceAsc','Fiyat (Artan)'],['priceDesc','Fiyat (Azalan)'],['sqmDesc','m² (Büyük)']]; %>
+                        <% sorts.forEach(function(s){ %>
+                            <option value="<%= s[0] %>" <%= filters.sort === s[0] ? 'selected' : '' %>><%= s[1] %></option>
+                        <% }); %>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Arama</label>
+                    <input type="text" name="q" value="<%= filters.q || '' %>" placeholder="İlçe / açıklama">
+                </div>
+            </form>
+        </div>
+
+        <% if (listings.length === 0) { %>
+            <div class="empty">
+                <span class="emoji">🗂️</span>
+                <p>Filtrelere uygun ilan bulunamadı.</p>
+                <a href="/listings" class="btn btn-outline btn-sm mt-2">Filtreleri Temizle</a>
+            </div>
+        <% } else { %>
+            <div class="listing-grid mt-3">
+                <% listings.forEach(function(item){ %>
+                    <% const b = helpers.trendBadge(item.userPrice, item.systemPrice); %>
+                    <% const isFav = favIds.includes(item.id); %>
+                    <div class="listing-card <%= item.userRole === 'Emlak Ofisi / Danışman' ? 'office' : '' %>">
+                        <a href="/listings/<%= item.id %>">
+                            <% const cover = (firstPhotos[item.id] && firstPhotos[item.id][0]) || item.photo; %>
+                            <img class="cover" src="<%= helpers.photoOrPlaceholder(cover) %>" alt="ilan görseli">
+                        </a>
+                        <div class="body">
+                            <a href="/listings/<%= item.id %>" class="title"><%= item.district %> / <%= item.subDistrict %></a>
+                            <div class="price"><%= helpers.formatCurrency(item.userPrice) %></div>
+                            <div class="meta">
+                                <span>📐 <%= item.sqm %> m²</span>
+                                <span>🛏 <%= item.roomCount %></span>
+                                <span>🏗 <%= helpers.ageLabel(item.age) %></span>
+                            </div>
+                            <div class="note">"<%= (item.note || '').slice(0, 70) %><%= (item.note||'').length > 70 ? '…' : '' %>"</div>
+                            <div class="footer">
+                                <span class="badge <%= b.cls %>"><%= b.emoji %> <%= b.label %></span>
+                                <% if (item.userRole === 'Emlak Ofisi / Danışman') { %>
+                                    <span class="badge badge-office">🏢 <%= item.companyName || 'Emlak Ofisi' %></span>
+                                <% } else { %>
+                                    <span class="badge badge-personal">👤 <%= item.owner %></span>
+                                <% } %>
+                            </div>
+                            <% if (currentUser) { %>
+                                <form action="/favorite/<%= item.id %>" method="POST" style="position:absolute; top:10px; right:10px;">
+                                    <button type="submit" class="fav-btn <%= isFav ? 'active' : '' %>" title="Favoriye ekle/çıkar" aria-label="favori">
+                                        <%= isFav ? '❤️' : '🤍' %>
+                                    </button>
+                                </form>
+                            <% } %>
+                        </div>
+                    </div>
+                <% }); %>
+            </div>
+
+            <!-- Sayfalama -->
+            <% if (totalPages > 1) { %>
+                <%
+                    const f = filters || {};
+                    const qParts = [];
+                    ['city','sub','minPrice','maxPrice','q','sort'].forEach(function(k){
+                        if (f[k] !== '' && f[k] !== undefined && f[k] !== null) qParts.push(k + '=' + encodeURIComponent(f[k]));
+                    });
+                    const baseQ = qParts.join('&');
+                    const pageUrl = function(n){ return '/listings?' + baseQ + (baseQ ? '&' : '') + 'page=' + n; };
+                %>
+                <div class="pagination">
+                    <% if (page > 1) { %><a href="<%= pageUrl(page - 1) %>">‹ Önceki</a><% } %>
+                    <% for (let p = 1; p <= totalPages; p++) { %>
+                        <% if (p === page) { %>
+                            <span class="current"><%= p %></span>
+                        <% } else if (Math.abs(p - page) <= 2 || p === 1 || p === totalPages) { %>
+                            <a href="<%= pageUrl(p) %>"><%= p %></a>
+                        <% } else if (Math.abs(p - page) === 3) { %>
+                            <span>…</span>
+                        <% } %>
+                    <% } %>
+                    <% if (page < totalPages) { %><a href="<%= pageUrl(page + 1) %>">Sonraki ›</a><% } %>
+                </div>
+            <% } %>
+        <% } %>
+    </main>
+</body>
+</html>

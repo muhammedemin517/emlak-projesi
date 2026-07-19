@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <%- include('partials/head') %>
+</head>
+<body>
+    <%- include('partials/nav') %>
+
+    <main class="container narrow">
+        <div class="card">
+            <h2>✉️ Gelen Mesajlar (<%= messages.length %>)</h2>
+
+            <% if (messages.length === 0) { %>
+                <div class="empty">
+                    <span class="emoji">📭</span>
+                    <p>Henüz mesajınız yok.</p>
+                </div>
+            <% } else { %>
+                <div style="display:flex; flex-direction:column; gap:14px;">
+                    <% messages.forEach(function(m){ %>
+                        <div class="card" style="margin:0; border-left: 4px solid <%= m.read ? '#cbd5e1' : 'var(--purple)' %>;">
+                            <div class="flex-between">
+                                <strong>
+                                    <%= m.read ? '📨' : '🔵' %> <%= m.fromUser === 'Misafir' ? 'Misafir' : '@' + m.fromUser %>
+                                </strong>
+                                <span class="text-muted" style="font-size:12px;"><%= helpers.formatDate(m.createdAt) %></span>
+                            </div>
+                            <p class="mt-1"><%= m.body %></p>
+                            <% if (m.phone) { %>
+                                <p class="text-muted mt-1" style="font-size:13px;">📞 İletişim: <%= m.phone %></p>
+                            <% } %>
+                            <div class="flex-between mt-2">
+                                <a href="/listings/<%= m.listingId %>" class="btn btn-outline btn-sm">İlanı Gör</a>
+                                <% if (!m.read) { %>
+                                    <form action="/messages/<%= m.id %>/read" method="POST">
+                                        <button type="submit" class="btn btn-primary btn-sm">Okundu İşaretle</button>
+                                    </form>
+                                <% } %>
+                            </div>
+                        </div>
+                    <% }); %>
+                </div>
+            <% } %>
+        </div>
+    </main>
+</body>
+</html>

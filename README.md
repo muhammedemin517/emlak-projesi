@@ -1,48 +1,70 @@
-# 🏢 EmlakPazar: Akıllı Gayrimenkul Pazaryeri ve Değerleme Motoru
+# Emlak Pazaryeri
 
-EmlakPazar, modern web mimarisi (MVC) kullanılarak geliştirilmiş, veri kazıma (web scraping) tabanlı çalışan akıllı bir gayrimenkul ekspertiz ve ilan yönetim platformudur. Sistem, sadece bir ilan havuzu olmakla kalmayıp, arka planda çalışan matematiksel endeks motoru sayesinde gayrimenkullerin adil piyasa değerini hesaplar ve yatırım analizi sunar.
+Piyasa endeksli gayrimenkul değerleme motoru + ilan pazaryeri. Express 5 +
+EJS + **SQLite (better-sqlite3)** veritabanı.
 
----
+## Başlangıç
 
-## 🚀 Öne Çıkan Gelişmiş Özellikler (Mühendislik Zekası)
+```bash
+npm install          # bağımlılıklar
+npm run seed         # data/marketData.json üret (13 şehir endeksi)
+npm run migrate      # (bir kez) eski JSON verisini SQLite'a taşır
+npm start            # sunucuyu başlat -> http://localhost:3000/login
+```
 
-* **Yapay Zeka Destekli Değerleme Motoru:** Konutun konumu, ilçesi, bina yaşı ve ulaşım imkanlarına göre lokasyon bazlı adil piyasa fiyatı hesaplar.
-* **Piyasa Karşılaştırma Analitiği:** Algoritmik olarak hesaplanan adil değer ile popüler platformlardaki (Sarı Site vb.) tahmini piyasa fiyatlarını karşılaştırarak jüriye sunum raporu hazırlar.
-* **Akıllı Yatırım Analiz Rozetleri:** Kullanıcıların ilana koyduğu fiyat ile sistemin biçtiği adil değeri kıyaslayarak ilan kartlarına otomatik olarak **🔴 Yüksek Fiyat**, **🟡 Dengeli Piyasa** veya **🟢 Kelepir / Fırsat** rozetleri mühürler.
-* **Anlık Canlı Filtreleme (Live Search):** Pazaryeri sayfasında sayfa yenilenmeden, saf JavaScript algoritmalarıyla şehir ve ilçe bazlı anlık canlı arama/filtreleme yapar.
-* **🖨 Kurumsal PDF / Çıktı Desteği:** Üretilen gelişmiş ekspertiz raporu tek tıkla fiziksel çıktıya veya PDF rapor belgesine dönüştürülebilir.
-* **Gelişmiş İlan ve Not Yönetimi:** Kullanıcılar kendi ilanlarına özel açıklamalar/notlar ekleyebilir, kendi panellerinden ilanlarını anlık olarak silebilirler.
+İlk açılışta `data/app.db` otomatik oluşturulur ve tablolar kurulur.
+`migrate` yalnızca eski `data/*.json` kayıtlarını DB'ye aktarmak içindir;
+boş bir kurulumda (data/ yoksa) atlanabilir.
 
----
+Ayarlar için `.env.example` dosyasını `.env` olarak kopyalayın
+(özellikle production'da `SESSION_SECRET`).
 
-## 💼 Rol Bazlı Ticari İş Modeli (Business Logic)
+## Mimari
 
-Sistem, ticari bir start-up vizyonuyla iki farklı kullanıcı rolüne göre kısıtlamalar ve öncelikler içerir:
+```
+app.js                # Express: EJS, session, helmet, static, 404/hata middleware
+db/                   # database.js (SQLite bağlantı + şema), migrate.js (JSON→DB)
+routes/               # authRoutes, estateRoutes (rotalar)
+controllers/          # authController, estateController, messageController
+models/               # user, estate, favorite, message (SQLite), market (JSON referans)
+middleware/           # auth (requireAuth/requireRole), rateLimit
+utils/                # valuation, format, escape, centroids (harita), liveScraper (kazıma), fileStore
+views/                # EJS sayfaları + partials/ (head, nav)
+public/               # css/style.css, uploads/ (ilan görselleri)
+data/                 # app.db (veritabanı) + marketData.json (endeks) + eski JSON'lar
+scraper.js            # seed: örnek piyasa endeks verisi üretir
+```
 
-1.  **Bireysel Kullanıcı (Sahibinden):** Suistimalleri engellemek amacıyla **maksimum 3 ilan** yayınlama sınırı vardır. 4. ilanda sistem otomatik bariyer uygular.
-2.  **Emlak Ofisi / Danışman (Kurumsal):** Kayıt esnasında bağlı olduğu kurumsal firma ismi sorulur. Kurumsal hesaplar **sınırsız ilan** hakkına sahiptir.
-3.  **Öne Çıkarma Algoritması (Top-Priority Doping):** Pazaryeri ilan havuzunda kurumsal emlakçı ilanları, veri sıralama (sort) algoritmaları sayesinde **her zaman en üst sırada** yeşil şeritli ve şirket logolu olarak listelenir.
+**Veri depolama:** İşlemsel veriler (kullanıcı, ilan, favori, mesaj)
+`data/app.db` SQLite veritabanında tutulur. Piyasa endeks verisi
+(`marketData.json`) salt-okunur referans/seed verisi olduğu için JSON'da kalır
+(gerçek dünyada config/lookup verisinin ayrı tutulması yaygın bir desendir).
+Eski `data/users.json`, `estates.json` vb. artık yedek/ölü dosyalardır;
+verinin kaynağı `app.db`'dir.
 
----
+## Özellikler
 
-## 🛠 Proje Klasör Yapısı (MVC Mimarisi)
+- **Oturum (session)** tabanlı kimlik doğrulama (`global.currentUser` kaldırıldı).
+  Çıkış yapma (`/logout`) ve korumalı rotalar (`requireAuth`).
+- **Değerleme motoru**: m² × ilçe çarpanı × bina yaşı × ulaşım × oda sayısı ×
+  kat × manzara × ısınma × asansör/otopark/eşyalı. Rapor, hesap dökümü ve
+  PDF/yazdır ile birlikte gelir.
+- **İlan pazaryeri**: kart grid, şehir/ilçe/fiyat filtresi, sıralama, sayfalama.
+- **Fotoğraf yükleme**: çoklu fotoğraf + galeri (multer, `public/uploads/`, en fazla 8).
+- **📍 Harita (Leaflet + OpenStreetMap)**: dashboard'da ilan konumunu haritadan
+  işaretle (lat/lng), ilan detayında harita göster. İşaretlenmezse şehir merkezi kullanılır.
+- **İlan yönetimi**: ekle / düzenle / sil (sadece sahip).
+- **Favoriler** ve **satıcıya mesaj** (gelen kutusu + okunmadı rozeti).
+- **Roller**: Bireysel (maks 3 ilan) ve Emlak Ofisi (sınırsız, listede öne çıkar).
+- **Güvenlik**: helmet (CSP), rate-limit (giriş/kayıt), EJS otomatik XSS kaçışı,
+  atomik dosya yazımı, şifreler bcrypt ile hash'lenir.
 
-```text
-emlak-projesi/
-├── controllers/
-│   ├── authController.js     # Giriş/Kayıt beyni ve session simülasyonu
-│   └── estateController.js   # Değerleme motoru, limitler ve ilan yönetim merkezi
-├── data/                     # [.gitignore listesindedir, lokalde üretilir]
-│   ├── marketData.json       # Kazınan şehir/ilçe endeks verileri
-│   ├── users.json            # Şifrelenmiş kullanıcı veritabanı
-│   └── estates.json          # Canlı ilan pazaryeri havuzu
-├── routes/
-│   ├── authRoutes.js         # Yetkilendirme rotaları
-│   └── estateRoutes.js       # Dashboard, raporlama ve ilan rotaları
-├── views/
-│   ├── login.html            # Kullanıcı giriş ekranı
-│   ├── register.html         # Dinamik firma sorgulu kayıt ekranı
-│   └── dashboard.html        # Değerleme formu ve navigasyon merkezi
-├── app.js                    # Ana sunucu yapılandırması ve URL encoding katmanı
-├── scraper.js                # Veri toplama motoru (Data Scraper)
-└── package.json              # Proje bağımlılıkları ve kütüphaneler
+## Sonraki adımlar (önerilen)
+
+- **Kazımayı gerçek kaynağa bağlama**: `SCRAPER_URL` ile bir hedef ayarlayıp
+  `utils/liveScraper.js` içindeki seçiciyi siteye uyarlayın (gerçek siteler
+  bot koruması kullanır; başarısız olursa otomatik örnek veriye düşer).
+- İlana **ödeme entegrasyonu** ve **gelişmiş arama** (harita üzerinde bölge seçimi).
+- **Testler** (Jest): değerleme motoru, auth, model katmanı.
+- **Loglama** (winston/morgan) ve Docker ile bulut deploy (Render/Railway).
+- İhtiyaç olursa SQLite → PostgreSQL'e geçiş (model katmanı sayesinde tek yerde).
